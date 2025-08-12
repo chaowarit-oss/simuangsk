@@ -28,7 +28,7 @@ ob_clean();
 
 // 5. กำหนดข้อมูลการเชื่อมต่อฐานข้อมูล
 $host = 'fdb1034.awardspace.net';
-$db = 'school_db'; // ชื่อฐานข้อมูล
+$db = '4670530_school'; // ชื่อฐานข้อมูล
 $user = '4670530_school';    // ชื่อผู้ใช้ฐานข้อมูล (ควรเปลี่ยนใน Production)
 $pass = 'SXX(hD?C6z5riQ,T';        // รหัสผ่านฐานข้อมูล (ควรตั้งค่าใน Production)
 
@@ -1741,5 +1741,6 @@ switch ($action) {
 
 $conn->close();
 ?>
+
 
 
