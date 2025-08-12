@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบจัดการเกียรติบัตร</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts: Kanit -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- jsPDF library for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            /* เปลี่ยนพื้นหลังของ body กลับเป็นสีเทาอ่อน */
+            background-color: #f0f2f5; 
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        /* .dashboard-card ที่กำหนดใน style.css จะมีผล */
+        .dashboard-card {
+            background-color: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+        }
+        .activity-card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .activity-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .activity-card-content {
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+        .status-completed {
+            color: #10B981; /* Green-500 */
+            font-weight: 600;
+        }
+        .status-incomplete {
+            color: #EF4444; /* Red-500 */
+            font-weight: 600;
+        }
+        .message-box {
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 100;
+        }
+        .message-box.show {
+            transform: translateY(0);
+        }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.75);
+        }
+        .modal-content {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal-content.scale-95 {
+            transform: scale(0.95);
+        }
+        .modal-content.opacity-0 {
+            opacity: 0;
+        }
+        /* Admin tab styles */
+        .admin-tab-btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-align: center;
+        }
+        .admin-tab-btn.active {
+            background-color: #3B82F6; /* Blue-600 */
+            color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .admin-tab-btn:not(.active) {
+            background-color: #D1D5DB; /* Gray-300 */
+            color: #1F2937; /* Gray-800 */
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .admin-tab-btn:not(.active):hover {
+            background-color: #9CA3AF; /* Gray-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <!-- Fixed Header for the system title -->
+    <header class="fixed top-0 left-0 w-full bg-blue-700 text-white py-4 text-center text-xl font-bold shadow-md z-50 flex items-center justify-between px-4">
+        <span class="flex-grow text-center">ระบบการเข้าร่วมกิจกรรมสัปดาห์วันวิทยาศาสตร์ โรงเรียนศรีเมืองวิทยาคาร 2025</span>
+        <i id="admin-login-icon" class="fas fa-user-shield text-3xl text-white cursor-pointer hover:text-gray-200 transition duration-300 ml-auto"></i>
+    </header>
+
+    <div id="message-box" class="message-box hidden"></div>
+
+    <!-- Main Content Wrapper -->
+    <div class="flex-grow pt-[72px]">
+        <!-- Login Section -->
+        <section id="login-section" class="flex items-center justify-center h-[calc(100vh-72px)] bg-gradient-to-r from-blue-500 to-purple-600">
+            <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md text-center">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">เข้าสู่ระบบ</h2>
+                
+                <!-- Student Login Form -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4">เข้าสู่ระบบนักเรียน</h3>
+                    <form id="student-login-form" class="space-y-4">
+                        <div>
+                            <input type="text" id="student-id" placeholder="รหัสนักเรียน" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300">เข้าสู่ระบบนักเรียน</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- Student Dashboard Section -->
+        <section id="student-dashboard-section" class="container hidden py-8 bg-white rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800">
+                    ยินดีต้อนรับ : <span id="student-name-display" class="text-blue-600"></span>
+                </h2>
+                <button id="student-logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition duration-300">
+                    <i class="fas fa-sign-out-alt mr-2"></i> ออกจากระบบ
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                <!-- Student Info Card -->
+                <div class="dashboard-card">
+                    <h3 class="text-xl font-semibold text-blue-800 mb-4 flex items-center">
+                        <i class="fas fa-user-circle mr-3 text-2xl"></i>ข้อมูลนักเรียน
+                    </h3>
+                    <p class="text-gray-700 mb-2"><strong class="font-medium">รหัสนักเรียน:</strong> <span id="student-info-id"></span></p>
+                    <p class="text-gray-700 mb-2"><strong class="font-medium">ชื่อ-นามสกุล:</strong> <span id="student-info-name"></span></p>
+                    <p class="text-gray-700 mb-2"><strong class="font-medium">ชั้น:</strong> <span id="student-info-class"></span></p>
+                    <p class="text-gray-700"><strong class="font-medium">เลขที่:</strong> <span id="student-info-room"></span></p>
+                </div>
+
+                <!-- Participation Progress Card -->
+                <div id="participation-progress-card" class="dashboard-card">
+                    <h3 class="text-xl font-semibold text-green-800 mb-4 flex items-center">
+                        <i class="fas fa-tasks mr-3 text-2xl"></i>ความคืบหน้ากิจกรรม
+                    </h3>
+                    <!-- Content for progress will be inserted here by JS -->
+                </div>
+
+                <!-- Certificate Status Card -->
+                <div id="certificate-section" class="dashboard-card">
+                    <h3 class="text-xl font-semibold text-purple-800 mb-4 flex items-center">
+                        <i class="fas fa-certificate mr-3 text-2xl"></i>สถานะเกียรติบัตร
+                    </h3>
+                    <p id="certificate-status" class="text-gray-700 mb-2">สถานะ: กำลังตรวจสอบ...</p>
+                    <p id="certificate-number-display" class="text-gray-700 font-bold mb-4 hidden"></p>
+                    <div id="certificate-preview-container" class="mt-4 hidden">
+                        <!-- Certificate image will be loaded here if available -->
+                    </div>
+                    <div class="flex flex-col space-y-3 mt-4">
+                        <button id="view-student-certificate-btn" class="bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300 hidden">
+                            <i class="fas fa-eye mr-2"></i>ดูเกียรติบัตร
+                        </button>
+                        <button id="download-student-certificate-btn" class="bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition duration-300 hidden">
+                            <i class="fas fa-download mr-2"></i>ดาวน์โหลดเกียรติบัตร
+                        </button>
+                        <button id="print-certificate-btn" class="bg-purple-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-purple-700 transition duration-300 hidden">
+                            <i class="fas fa-print mr-2"></i>พิมพ์เกียรติบัตร
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="text-2xl font-bold text-gray-800 mb-4">รายการกิจกรรม</h3>
+            <div id="activities-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Activities will be loaded here by JS -->
+            </div>
+        </section>
+
+        <!-- Activity Quiz Modal -->
+        <div id="activity-quiz-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl modal-content">
+                <h3 id="quiz-modal-title" class="text-2xl font-bold text-gray-800 mb-4 text-center"></h3>
+                
+                <!-- Access Code Input -->
+                <div id="quiz-access-code-input" class="mb-6">
+                    <label for="access-code" class="block text-gray-700 text-lg font-medium mb-2">กรอกรหัสยืนยันการเข้าฐาน:</label>
+                    <input type="text" id="access-code" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    <button id="verify-access-code-btn" class="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300">
+                        ยืนยันรหัส
+                    </button>
+                </div>
+
+                <!-- Quiz Content (hidden until access code is verified) -->
+                <div id="quiz-content" class="hidden">
+                    <form id="quiz-form" class="space-y-6 max-h-96 overflow-y-auto pr-2">
+                        <!-- Quiz questions and options will be loaded here by JS -->
+                    </form>
+                    <button id="submit-quiz-btn" class="mt-6 w-full bg-green-600 text-white py-2 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300 hidden">
+                        ส่งแบบทดสอบ
+                    </button>
+                </div>
+                <button id="close-quiz-modal" class="mt-4 w-full bg-red-500 text-white py-2 rounded-lg shadow-md hover:bg-red-600 transition-colors duration-300">
+                    ปิด
+                </button>
+            </div>
+        </div>
+
+        <!-- Student Certificate View Modal -->
+        <div id="student-certificate-view-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-3xl modal-content">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">ตัวอย่างเกียรติบัตร</h3>
+                <div class="relative mb-6 text-center">
+                    <img id="student-cert-modal-img" src="" alt="Certificate Preview" class="w-full h-auto rounded-lg shadow-md">
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button id="download-student-certificate-from-modal-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300">
+                        <i class="fas fa-download mr-2"></i> ดาวน์โหลด
+                    </button>
+                    <button id="close-student-certificate-view-modal-btn" class="bg-red-500 text-white px-6 py-3 rounded-lg shadow-md hover:bg-red-600 transition-colors duration-300">
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+        <!-- Admin Dashboard Section -->
+        <section id="admin-dashboard-section" class="container hidden py-8 bg-white rounded-lg shadow-md">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold text-gray-800">แผงควบคุมผู้ดูแลระบบ</h2>
+                <button id="admin-logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-600 transition duration-300">
+                    <i class="fas fa-sign-out-alt mr-2"></i> ออกจากระบบ
+                </button>
+            </div>
+
+            <!-- Admin Tab Navigation -->
+            <div class="flex space-x-2 p-1 bg-gray-200 rounded-xl mb-8 shadow-inner">
+                <button id="admin-tab-dashboard" class="admin-tab-btn active bg-blue-600 text-white shadow-md">
+                    <i class="fas fa-tachometer-alt mr-2"></i>ภาพรวม
+                </button>
+                <button id="admin-tab-students" class="admin-tab-btn">
+                    <i class="fas fa-users mr-2"></i>จัดการนักเรียน
+                </button>
+                <button id="admin-tab-activities" class="admin-tab-btn">
+                    <i class="fas fa-running mr-2"></i>จัดการกิจกรรม
+                </button>
+                <button id="admin-tab-quizzes" class="admin-tab-btn">
+                    <i class="fas fa-question-circle mr-2"></i>จัดการแบบทดสอบ
+                </button>
+                <button id="admin-tab-certificates" class="admin-tab-btn">
+                    <i class="fas fa-file-alt mr-2"></i>จัดการเทมเพลตเกียรติบัตร
+                </button>
+                <button id="admin-tab-issued-certificates" class="admin-tab-btn">
+                    <i class="fas fa-award mr-2"></i>เกียรติบัตรที่ออกให้
+                </button>
+            </div>
+
+            <!-- Admin Content Areas -->
+
+            <!-- Dashboard Summary Content -->
+            <div id="admin-content-dashboard" class="admin-content-area dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">ภาพรวมระบบ</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-blue-50 p-6 rounded-lg shadow-sm flex flex-col items-center">
+                        <i class="fas fa-users text-4xl text-blue-600 mb-3"></i>
+                        <p class="text-gray-700 font-medium">นักเรียนทั้งหมด</p>
+                        <span id="total-students" class="text-3xl font-bold text-blue-700">0</span>
+                    </div>
+                    <div class="bg-green-50 p-6 rounded-lg shadow-sm flex flex-col items-center">
+                        <i class="fas fa-running text-4xl text-green-600 mb-3"></i>
+                        <p class="text-gray-700 font-medium">กิจกรรมทั้งหมด</p>
+                        <span id="total-activities" class="text-3xl font-bold text-green-700">0</span>
+                    </div>
+                    <div class="bg-yellow-50 p-6 rounded-lg shadow-sm flex flex-col items-center">
+                        <i class="fas fa-check-circle text-4xl text-yellow-600 mb-3"></i>
+                        <p class="text-gray-700 font-medium">นักเรียนผ่าน 70%</p>
+                        <span id="students-passed-70" class="text-3xl font-bold text-yellow-700">0</span>
+                    </div>
+                    <div class="bg-purple-50 p-6 rounded-lg shadow-sm flex flex-col items-center">
+                        <i class="fas fa-chart-pie text-4xl text-purple-600 mb-3"></i>
+                        <p class="text-gray-700 font-medium">การเข้าร่วม (%)</p>
+                        <span id="participation-percentage" class="text-3xl font-bold text-purple-700">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Management Content -->
+            <div id="admin-content-students" class="admin-content-area hidden dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">จัดการนักเรียน</h3>
+                <div class="mb-6 p-6 border border-gray-200 rounded-lg bg-gray-50 shadow-sm">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">เพิ่มนักเรียนใหม่</h4>
+                    <form id="add-student-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="new-student-id" class="block text-gray-700 text-sm font-medium mb-1">รหัสนักเรียน:</label>
+                            <input type="text" id="new-student-id" placeholder="ตัวอย่าง: 11111" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="new-student-first-name" class="block text-gray-700 text-sm font-medium mb-1">ชื่อ:</label>
+                            <input type="text" id="new-student-first-name" placeholder="ตัวอย่าง: สมชาย" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="new-student-last-name" class="block text-gray-700 text-sm font-medium mb-1">นามสกุล:</label>
+                            <input type="text" id="new-student-last-name" placeholder="ตัวอย่าง: ใจดี" class="w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="new-student-class" class="block text-gray-700 text-sm font-medium mb-1">ชั้น:</label>
+                            <select id="new-student-class" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">เลือกชั้น</option>
+                                <option value="มัธยมศึกษาปีที่ 1">มัธยมศึกษาปีที่ 1</option>
+                                <option value="มัธยมศึกษาปีที่ 2">มัธยมศึกษาปีที่ 2</option>
+                                <option value="มัธยมศึกษาปีที่ 3">มัธยมศึกษาปีที่ 3</option>
+                                <option value="มัธยมศึกษาปีที่ 4">มัธยมศึกษาปีที่ 4</option>
+                                <option value="มัธยมศึกษาปีที่ 5">มัธยมศึกษาปีที่ 5</option>
+                                <option value="มัธยมศึกษาปีที่ 6">มัธยมศึกษาปีที่ 6</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="new-student-room" class="block text-gray-700 text-sm font-medium mb-1">เลขที่ห้อง:</label>
+                            <select id="new-student-room" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">เลือกห้อง</option>
+                                <!-- Options 1-13 will be generated by JS -->
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300">เพิ่มนักเรียน</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="mb-6 p-6 border border-gray-200 rounded-lg bg-gray-50 shadow-sm">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">นำเข้าข้อมูลนักเรียนจาก Excel (CSV)</h4>
+                    <p class="text-gray-700 mb-3">
+                        โปรดตรวจสอบให้แน่ใจว่าแถวแรกของไฟล์ (Header Row) มีชื่อคอลัมน์ดังต่อไปนี้ **โดยต้องสะกดให้ตรงทั้งหมดและเป็นตัวอักษรภาษาอังกฤษตัวเล็กเท่านั้น**:
+                    </p>
+                    <pre class="bg-gray-100 p-3 rounded-md border border-gray-300 text-sm font-mono mb-4"><code>student_id,first_name,last_name,class,room_number</code></pre>
+                    <div class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+                        <input type="file" id="import-students-excel" accept=".csv, .xls, .xlsx" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+                        <button id="upload-excel-btn" class="w-full md:w-auto bg-green-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-green-700 transition duration-300">อัปโหลด</button>
+                    </div>
+                </div>
+
+                <div class="mb-6 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                    <select id="filter-student-class" class="px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">กรองตามชั้น</option>
+                        <option value="มัธยมศึกษาปีที่ 1">มัธยมศึกษาปีที่ 1</option>
+                        <option value="มัธยมศึกษาปีที่ 2">มัธยมศึกษาปีที่ 2</option>
+                        <option value="มัธยมศึกษาปีที่ 3">มัธยมศึกษาปีที่ 3</option>
+                        <option value="มัธยมศึกษาปีที่ 4">มัธยมศึกษาปีที่ 4</option>
+                        <option value="มัธยมศึกษาปีที่ 5">มัธยมศึกษาปีที่ 5</option>
+                        <option value="มัธยมศึกษาปีที่ 6">มัธยมศึกษาปีที่ 6</option>
+                    </select>
+                    <select id="filter-student-room" class="px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">กรองตามห้อง</option>
+                        <!-- Options 1-13 will be generated by JS -->
+                    </select>
+                    <button id="clear-student-filters" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-400 transition duration-300">
+                        ล้างตัวกรอง
+                    </button>
+                </div>
+                <!-- Pagination Controls for Students - TOP -->
+                <div id="students-pagination-top" class="flex justify-between items-center mb-4">
+                    <button id="students-prev-btn-top" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ก่อนหน้า
+                    </button>
+                    <span id="students-page-info-top" class="text-gray-700 font-medium">หน้า 1 จาก 1</span>
+                    <button id="students-next-btn-top" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ถัดไป
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสนักเรียน</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชั้น</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="students-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Student data will be loaded here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Controls for Students - BOTTOM -->
+                <div id="students-pagination" class="flex justify-between items-center mt-6">
+                    <button id="students-prev-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ก่อนหน้า
+                    </button>
+                    <span id="students-page-info" class="text-gray-700 font-medium">หน้า 1 จาก 1</span>
+                    <button id="students-next-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ถัดไป
+                    </button>
+                </div>
+            </div>
+
+            <!-- Activity Management Content -->
+            <div id="admin-content-activities" class="admin-content-area hidden dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">จัดการกิจกรรม</h3>
+                <div class="mb-6 p-6 border border-gray-200 rounded-lg bg-gray-50 shadow-sm">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">เพิ่มกิจกรรมใหม่</h4>
+                    <form id="add-activity-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="new-activity-name" class="block text-gray-700 text-sm font-medium mb-1">ชื่อกิจกรรม:</label>
+                            <input type="text" id="new-activity-name" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="new-activity-description" class="block text-gray-700 text-sm font-medium mb-1">คำอธิบาย:</label>
+                            <textarea id="new-activity-description" rows="3" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                        </div>
+                        <div>
+                            <label for="new-activity-image-file" class="block text-gray-700 text-sm font-medium mb-1">รูปภาพกิจกรรม:</label>
+                            <input type="file" id="new-activity-image-file" accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+                        </div>
+                        <div>
+                            <label for="new-activity-access-code" class="block text-gray-700 text-sm font-medium mb-1">รหัสยืนยันการเข้าฐาน:</label>
+                            <input type="text" id="new-activity-access-code" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300">เพิ่มกิจกรรม</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รูปภาพ</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อกิจกรรม</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำอธิบาย</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสเข้าถึง</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activities-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Activity data will be loaded here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Edit Activity Modal -->
+            <div id="edit-activity-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+                <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-xl modal-content">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">แก้ไขกิจกรรม</h3>
+                    <form id="edit-activity-form" class="space-y-4">
+                        <input type="hidden" id="edit-activity-id">
+                        <div>
+                            <label for="edit-activity-name" class="block text-gray-700 text-sm font-medium mb-1">ชื่อกิจกรรม:</label>
+                            <input type="text" id="edit-activity-name" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="edit-activity-description" class="block text-gray-700 text-sm font-medium mb-1">คำอธิบาย:</label>
+                            <textarea id="edit-activity-description" rows="3" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                        </div>
+                        <div>
+                            <label for="edit-activity-image-file" class="block text-gray-700 text-sm font-medium mb-1">รูปภาพกิจกรรม (เลือกใหม่):</label>
+                            <input type="file" id="edit-activity-image-file" accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+                            <p class="text-xs text-gray-500 mt-1">รูปภาพปัจจุบัน:</p>
+                            <img id="edit-activity-current-image" src="" alt="Current Activity Image" class="w-24 h-16 object-cover rounded-md mt-2">
+                        </div>
+                        <div>
+                            <label for="edit-activity-access-code" class="block text-gray-700 text-sm font-medium mb-1">รหัสยืนยันการเข้าฐาน:</label>
+                            <input type="text" id="edit-activity-access-code" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                        </div>
+                        <div class="flex justify-end space-x-4 mt-6">
+                            <button type="button" id="edit-activity-cancel" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg shadow hover:bg-gray-400 transition-colors duration-300">ยกเลิก</button>
+                            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300">บันทึกการเปลี่ยนแปลง</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quiz Management Content -->
+            <div id="admin-content-quizzes" class="admin-content-area hidden dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">จัดการแบบทดสอบ</h3>
+                <div class="mb-6 p-6 border border-gray-200 rounded-lg bg-white shadow-sm"> <!-- Changed bg-gray-500 to bg-white -->
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">เพิ่มแบบทดสอบใหม่</h4>
+                    <form id="add-quiz-form" class="space-y-4">
+                        <div>
+                            <label for="quiz-activity-select" class="block text-gray-700 text-sm font-medium mb-1">เลือกกิจกรรม:</label>
+                            <select id="quiz-activity-select" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">เลือกกิจกรรม</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="new-quiz-question" class="block text-gray-700 text-sm font-medium mb-1">คำถาม:<i class="fas fa-question-circle text-red-500 ml-2"></i></label>
+                            <textarea id="new-quiz-question" rows="2" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="new-quiz-option-a" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก A:</label>
+                                <input type="text" id="new-quiz-option-a" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="new-quiz-option-b" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก B:</label>
+                                <input type="text" id="new-quiz-option-b" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="new-quiz-option-c" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก C:</label>
+                                <input type="text" id="new-quiz-option-c" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="new-quiz-option-d" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก D:</label>
+                                <input type="text" id="new-quiz-option-d" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+                        <!-- Start: Consolidated fields for Correct Answer and Score per Question -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="new-quiz-correct-answer" class="block text-gray-700 text-sm font-medium mb-1">คำตอบที่ถูกต้อง:<i class="fas fa-check-circle text-green-500 ml-2"></i></label>
+                                <select id="new-quiz-correct-answer" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                    <option value="">เลือกคำตอบ</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="new-quiz-score" class="block text-gray-700 text-sm font-medium mb-1">คะแนนต่อข้อ:</label>
+                                <input type="number" id="new-quiz-score" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" value="1" required>
+                            </div>
+                        </div>
+                        <!-- End: Consolidated fields -->
+                        <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300">เพิ่มแบบทดสอบ</button>
+                    </form>
+                </div>
+
+                <div class="mb-6">
+                    <label for="filter-quiz-activity" class="block text-gray-700 text-sm font-medium mb-1">กรองแบบทดสอบตามกิจกรรม:</label>
+                    <select id="filter-quiz-activity" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">แสดงทั้งหมด</option>
+                    </select>
+                </div>
+
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">กิจกรรม</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำถาม</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คำตอบที่ถูกต้อง</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">คะแนน</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="quizzes-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Quiz data will be loaded here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Edit Quiz Modal (New) -->
+            <div id="edit-quiz-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+                <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-xl modal-content">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">แก้ไขแบบทดสอบ</h3>
+                    <form id="edit-quiz-form" class="space-y-4">
+                        <input type="hidden" id="edit-quiz-id">
+                        <div>
+                            <label for="edit-quiz-activity-select" class="block text-gray-700 text-sm font-medium mb-1">เลือกกิจกรรม:</label>
+                            <select id="edit-quiz-activity-select" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                <option value="">เลือกกิจกรรม</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit-quiz-question" class="block text-gray-700 text-sm font-medium mb-1">คำถาม:<i class="fas fa-question-circle text-red-500 ml-2"></i></label>
+                            <textarea id="edit-quiz-question" rows="2" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="edit-quiz-option-a" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก A:</label>
+                                <input type="text" id="edit-quiz-option-a" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="edit-quiz-option-b" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก B:</label>
+                                <input type="text" id="edit-quiz-option-b" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="edit-quiz-option-c" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก C:</label>
+                                <input type="text" id="edit-quiz-option-c" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                            <div>
+                                <label for="edit-quiz-option-d" class="block text-gray-700 text-sm font-medium mb-1">ตัวเลือก D:</label>
+                                <input type="text" id="edit-quiz-option-d" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                            </div>
+                        </div>
+                        <!-- Start: Consolidated fields for Correct Answer and Score per Question in Edit Modal -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="edit-quiz-correct-answer" class="block text-gray-700 text-sm font-medium mb-1">คำตอบที่ถูกต้อง:<i class="fas fa-check-circle text-green-500 ml-2"></i></label>
+                                <select id="edit-quiz-correct-answer" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                                    <option value="">เลือกคำตอบ</option>
+                                    <option value="A">A</option>
+                                    <option value="B">B</option>
+                                    <option value="C">C</option>
+                                    <option value="D">D</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="edit-quiz-score" class="block text-gray-700 text-sm font-medium mb-1">คะแนนต่อข้อ:</label>
+                                <input type="number" id="edit-quiz-score" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" required>
+                            </div>
+                        </div>
+                        <!-- End: Consolidated fields -->
+                        <div class="flex justify-end space-x-4 mt-6">
+                            <button type="button" id="edit-quiz-cancel" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg shadow hover:bg-gray-400 transition-colors duration-300">ยกเลิก</button>
+                            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300">บันทึกการเปลี่ยนแปลง</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+
+            <!-- Certificate Template Management Content -->
+            <div id="admin-content-certificates" class="admin-content-area hidden dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">จัดการเทมเพลตเกียรติบัตร</h3>
+                <div class="mb-6 p-6 border border-gray-200 rounded-lg bg-gray-50 shadow-sm">
+                    <h4 class="text-xl font-semibold text-gray-800 mb-4">เพิ่มเทมเพลตเกียรติบัตรใหม่</h4>
+                    <form id="add-certificate-template-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="new-certificate-image-file" class="block text-gray-700 text-sm font-medium mb-1">ไฟล์รูปภาพเทมเพลต:</label>
+                            <input type="file" id="new-certificate-image-file" accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none" required>
+                        </div>
+                        <div>
+                            <label for="new-certificate-start-number" class="block text-gray-700 text-sm font-medium mb-1">เลขที่เริ่มต้น:</label>
+                            <input type="number" id="new-certificate-start-number" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" required>
+                        </div>
+                        <div>
+                            <label for="new-certificate-end-number" class="block text-gray-700 text-sm font-medium mb-1">เลขที่สิ้นสุด:</label>
+                            <input type="number" id="new-certificate-end-number" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-700 transition duration-300">เพิ่มเทมเพลต</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รูปภาพเทมเพลต</th> <!-- Added this column -->
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่เริ่มต้น</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่สิ้นสุด</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="certificate-templates-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Certificate templates will be loaded here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Edit Certificate Template Modal -->
+            <div id="edit-certificate-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+                <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-xl modal-content">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">แก้ไขเทมเพลตเกียรติบัตร</h3>
+                    <form id="edit-certificate-form" class="space-y-4">
+                        <input type="hidden" id="edit-certificate-id">
+                        <div>
+                            <label for="edit-certificate-image-file" class="block text-gray-700 text-sm font-medium mb-1">ไฟล์รูปภาพเทมเพลต (เลือกใหม่):</label>
+                            <input type="file" id="edit-certificate-image-file" accept="image/*" class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none">
+                            <p class="text-xs text-gray-500 mt-1">รูปภาพปัจจุบัน:</p>
+                            <img id="edit-certificate-current-image" src="" alt="Current Certificate Image" class="w-24 h-16 object-cover rounded-md mt-2">
+                        </div>
+                        <div>
+                            <label for="edit-certificate-start-number" class="block text-gray-700 text-sm font-medium mb-1">เลขที่เริ่มต้น:</label>
+                            <input type="number" id="edit-certificate-start-number" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" required>
+                        </div>
+                        <div>
+                            <label for="edit-certificate-end-number" class="block text-gray-700 text-sm font-medium mb-1">เลขที่สิ้นสุด:</label>
+                            <input type="number" id="edit-certificate-end-number" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" min="1" required>
+                        </div>
+                        <div class="flex justify-end space-x-4 mt-6">
+                            <button type="button" id="edit-certificate-cancel" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg shadow hover:bg-gray-400 transition-colors duration-300">ยกเลิก</button>
+                            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300">บันทึกการเปลี่ยนแปลง</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Issued Certificates Content -->
+            <div id="admin-content-issued-certificates" class="admin-content-area hidden dashboard-card">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">เกียรติบัตรที่ออกให้</h3>
+                <div class="mb-6 flex flex-wrap items-center justify-end gap-4">
+                    <button id="generate-certificates-btn" class="bg-purple-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-purple-700 transition-colors duration-300">
+                        <i class="fas fa-magic mr-2"></i>สร้างเกียรติบัตรสำหรับนักเรียนที่ผ่านเกณฑ์ทั้งหมด
+                    </button>
+                    <button id="open-generate-room-certificates-modal-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out flex-shrink-0">
+                        <i class="fas fa-file-pdf mr-2"></i>สร้างเกียรติบัตรรายห้อง (PDF)
+                    </button>
+                </div>
+
+                <div class="mb-6 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
+                    <select id="filter-issued-cert-class" class="px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">กรองตามชั้น</option>
+                        <option value="มัธยมศึกษาปีที่ 1">มัธยมศึกษาปีที่ 1</option>
+                        <option value="มัธยมศึกษาปีที่ 2">มัธยมศึกษาปีที่ 2</option>
+                        <option value="มัธยมศึกษาปีที่ 3">มัธยมศึกษาปีที่ 3</option>
+                        <option value="มัธยมศึกษาปีที่ 4">มัธยมศึกษาปีที่ 4</option>
+                        <option value="มัธยมศึกษาปีที่ 5">มัธยมศึกษาปีที่ 5</option>
+                        <option value="มัธยมศึกษาปีที่ 6">มัธยมศึกษาปีที่ 6</option>
+                    </select>
+                    <select id="filter-issued-cert-room" class="px-3 py-2 border rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">กรองตามห้อง</option>
+                        <!-- Options 1-13 will be generated by JS -->
+                    </select>
+                    <button id="clear-issued-cert-filters" class="bg-gray-300 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-400 transition duration-300">
+                        ล้างตัวกรอง
+                    </button>
+                </div>
+                <!-- Pagination Controls for Issued Certificates - TOP -->
+                <div id="issued-certificates-pagination-top" class="flex justify-between items-center mb-4">
+                    <button id="issued-certificates-prev-btn-top" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ก่อนหน้า
+                    </button>
+                    <span id="issued-certificates-page-info-top" class="text-gray-700 font-medium">หน้า 1 จาก 1</span>
+                    <button id="issued-certificates-next-btn-top" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ถัดไป
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto bg-white rounded-lg shadow-md">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รหัสนักเรียน</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชั้น</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">เลขที่เกียรติบัตร</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รูปภาพเทมเพลต</th> <!-- Added this column for the image preview -->
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issued-certificates-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Issued certificates will be loaded here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Pagination Controls for Issued Certificates - BOTTOM -->
+                <div id="issued-certificates-pagination" class="flex justify-between items-center mt-6">
+                    <button id="issued-certificates-prev-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ก่อนหน้า
+                    </button>
+                    <span id="issued-certificates-page-info" class="text-gray-700 font-medium">หน้า 1 จาก 1</span>
+                    <button id="issued-certificates-next-btn" class="bg-blue-500 text-white px-4 py-2 rounded-md font-semibold hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        ถัดไป
+                    </button>
+                </div>
+            </div>
+
+            <!-- Admin Issued Certificate Preview Modal -->
+            <div id="issued-certificate-preview-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+                <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-3xl modal-content">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">ตัวอย่างเกียรติบัตรที่ออกให้แล้ว</h3>
+                    <div class="relative mb-6 text-center">
+                        <img id="issued-cert-preview-img" src="" alt="Issued Certificate Preview" class="w-full h-auto rounded-lg shadow-md">
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button id="download-issued-certificate-btn" class="bg-green-600 text-white px-6 py-3 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300">
+                            <i class="fas fa-download mr-2"></i> ดาวน์โหลด
+                        </button>
+                        <button id="close-issued-certificate-preview-modal-btn" class="bg-red-500 text-white px-6 py-3 rounded-lg shadow-md hover:bg-red-600 transition-colors duration-300">
+                            ปิด
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Admin Login Modal -->
+        <div id="admin-login-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+            <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm modal-content">
+                <h3 class="text-2xl font-bold text-gray-800 mb-4 text-center">เข้าสู่ระบบผู้ดูแลระบบ</h3>
+                <form id="admin-login-form" class="space-y-4">
+                    <div>
+                        <label for="admin-username" class="sr-only">ชื่อผู้ใช้</label>
+                        <input type="text" id="admin-username" placeholder="ชื่อผู้ใช้" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div>
+                        <label for="admin-password" class="sr-only">รหัสผ่าน</label>
+                        <input type="password" id="admin-password" placeholder="รหัสผ่าน" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button type="button" id="admin-login-cancel" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg shadow hover:bg-gray-400 transition-colors duration-300">ยกเลิก</button>
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-blue-700 transition-colors duration-300">เข้าสู่ระบบ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div> <!-- End of flex-grow div -->
+
+    <!-- New: Generate Room Certificates Modal -->
+    <div id="generate-room-certificates-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 hidden modal">
+        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-2xl modal-content">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">สร้างเกียรติบัตรรายห้อง</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="generate-room-class" class="block text-gray-700 text-sm font-semibold mb-2">เลือกชั้น:</label>
+                    <select id="generate-room-class" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">เลือกชั้น</option>
+                        <option value="มัธยมศึกษาปีที่ 1">มัธยมศึกษาปีที่ 1</option>
+                        <option value="มัธยมศึกษาปีที่ 2">มัธยมศึกษาปีที่ 2</option>
+                        <option value="มัธยมศึกษาปีที่ 3">มัธยมศึกษาปีที่ 3</option>
+                        <option value="มัธยมศึกษาปีที่ 4">มัธยมศึกษาปีที่ 4</option>
+                        <option value="มัธยมศึกษาปีที่ 5">มัธยมศึกษาปีที่ 5</option>
+                        <option value="มัธยมศึกษาปีที่ 6">มัธยมศึกษาปีที่ 6</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="generate-room-number" class="block text-gray-700 text-sm font-semibold mb-2">เลือกห้อง:</label>
+                    <select id="generate-room-number" class="w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">เลือกห้อง</option>
+                        <!-- Rooms will be populated by JavaScript -->
+                    </select>
+                </div>
+                <div class="md:col-span-2 text-right">
+                    <button id="load-eligible-students-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-300 ease-in-out flex-shrink-0">
+                        <i class="fas fa-search mr-2"></i>ค้นหานักเรียนที่ผ่านเกณฑ์
+                    </button>
+                </div>
+            </div>
+
+            <div id="eligible-students-results" class="bg-gray-100 p-4 rounded-lg max-h-80 overflow-y-auto mb-6">
+                <!-- IMPORTANT: Added id="eligible-students-initial-message" here -->
+                <p id="eligible-students-initial-message" class="text-center text-gray-600">กรุณาเลือกชั้นและห้องเพื่อค้นหานักเรียนที่ผ่านเกณฑ์</p>
+                <table class="min-w-full bg-white border border-gray-200 mt-4 hidden" id="eligible-students-table">
+                    <thead>
+                        <tr>
+                            <th class="py-2 px-3 bg-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">รหัส</th>
+                            <th class="py-2 px-3 bg-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ชื่อ-นามสกุล</th>
+                            <th class="py-2 px-3 bg-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ชั้น/ห้อง</th>
+                            <th class="py-2 px-3 bg-gray-200 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">เลขที่</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eligible-students-table-body">
+                        <!-- Eligible students data will be loaded here -->
+                    </tbody>
+                </table>
+                <p id="no-eligible-students-message" class="text-center text-red-500 hidden mt-4">ไม่พบนักเรียนที่ผ่านเกณฑ์ในชั้น/ห้องนี้</p>
+            </div>
+
+            <div class="flex justify-end space-x-4 mt-6">
+                <button type="button" id="generate-room-certificates-cancel" class="bg-gray-300 text-gray-800 px-6 py-2 rounded-lg shadow hover:bg-gray-400 transition-colors duration-300">ยกเลิก</button>
+                <button type="button" id="download-selected-room-certificates-pdf" class="bg-green-600 text-white px-6 py-2 rounded-lg shadow-md hover:bg-green-700 transition-colors duration-300" disabled>
+                    <i class="fas fa-file-pdf mr-2"></i>ดาวน์โหลดเกียรติบัตร (PDF)
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Footer Section -->
+    <footer class="w-full bg-gray-800 text-gray-300 py-4 text-center text-sm shadow-inner z-40 mt-auto">
+        <p>&copy; 2025 ลิขสิทธิ์ของ โรงเรียนศรีเมืองวิทยาคาร</p>
+        <p>พัฒนาระบบโดย : งานนวัตกรรมและเทคโนโลยีเพื่อการศึกษา โรงเรียนศรีเมืองวิทยาคาร</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
