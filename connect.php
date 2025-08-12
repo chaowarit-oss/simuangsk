@@ -27,10 +27,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 ob_clean();
 
 // 5. กำหนดข้อมูลการเชื่อมต่อฐานข้อมูล
-$host = 'ql313.infinityfree.com';
-$db = 'if0_39689872_school_db'; // ชื่อฐานข้อมูล
-$user = 'if0_39689872';    // ชื่อผู้ใช้ฐานข้อมูล (ควรเปลี่ยนใน Production)
-$pass = 'jG6KS0Ipbfw';        // รหัสผ่านฐานข้อมูล (ควรตั้งค่าใน Production)
+$host = 'fdb1034.awardspace.net';
+$db = 'school_db'; // ชื่อฐานข้อมูล
+$user = '4670530_school';    // ชื่อผู้ใช้ฐานข้อมูล (ควรเปลี่ยนใน Production)
+$pass = 'SXX(hD?C6z5riQ,T';        // รหัสผ่านฐานข้อมูล (ควรตั้งค่าใน Production)
 
 // 6. สร้างการเชื่อมต่อฐานข้อมูล MySQLi
 $conn = new mysqli($host, $user, $pass);
@@ -1741,4 +1741,5 @@ switch ($action) {
 
 $conn->close();
 ?>
+
 
